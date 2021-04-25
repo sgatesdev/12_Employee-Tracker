@@ -51,7 +51,7 @@ function init() {
 
 // create, view, change employee roles, update manager assignment, delete employees
 function employees() {
-    console.log('\n********* Employee Manager **********\n');
+    console.log('\n********* Employee');
 
     inquirer
     .prompt({
@@ -165,7 +165,86 @@ function viewEmployees() {
 
 //change employee role
 function modifyRole() {
-    
+    var employeeId = -1;
+
+    connection.query('SELECT * FROM employee', (err, employees) => {
+        // error handling
+        if (err) throw err;
+        // if no error, dump roles into array for menu 
+        let employeeList = [];
+        employees.forEach(employee => employeeList.push(employee.id + '. ' + employee.first_name + ' ' + employee.last_name));
+        // add exit option
+        employeeList.push('Exit');
+
+        inquirer
+        .prompt([
+            {
+                name: 'name',
+                type: 'list',
+                message: 'Which employee do you want to change the role for?',
+                choices: employeeList
+            }
+        ])
+        .then((employee) => {
+            if (employee.name === 'Exit') {
+                connection.end();
+            }
+            else {
+                employeeId = employee.name.substr(0,employee.name.indexOf('.'));
+
+                connection.query('SELECT * FROM role', (err, roles) => {
+                    // error handling
+                    if (err) throw err;
+
+                    // else build menu of roles
+                    let roleList = [];
+                    roles.forEach(role => roleList.push(role.id + '. ' + role.title + ' $' + role.salary));
+
+                    // add exit option
+                    roleList.push('Exit');
+
+                    inquirer
+                    .prompt([
+                        {
+                            name: 'name',
+                            type: 'list',
+                            message: 'Which role do you want to use?',
+                            choices: roleList
+                        }
+                    ])
+                    .then((role) => {
+                        if (employee.name === 'Exit') {
+                            connection.end();
+                        }
+                        else {
+                            // get role ID
+                            let roleId = role.name.substr(0,role.name.indexOf('.'));
+                            console.log(employeeId);
+                            
+                            connection.query(
+                                'UPDATE employee SET ? WHERE ?',
+                                [
+                                  {
+                                    role_id: roleId,
+                                  },
+                                  {
+                                    id: employeeId,
+                                  },
+                                ],
+                                (error) => {
+                                  if (error) throw err;
+                                  
+                                  console.log('\n********* Updated employee role!');
+
+                                  modifyRole();
+                                }
+                              );
+                        }
+                    });
+                });
+            }
+        });
+    });
 }
 
 //change employee manager
@@ -238,9 +317,9 @@ function modifyManager() {
                                 ],
                                 (error) => {
                                   if (error) throw err;
-                                  console.log('\n********* Updated manager!');
+                                  console.log('\n********* Updated manager!\n');
 
-                                  employees();
+                                  modifyManager();
                                 }
                               );
                         }
