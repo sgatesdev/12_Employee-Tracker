@@ -494,7 +494,7 @@ async function viewPayroll() {
 
 // create, view, delete roles
 function roles() {
-    console.log('\n********* Departments');
+    console.log('\n********* Roles');
 
     inquirer
     .prompt({
@@ -510,10 +510,10 @@ function roles() {
                     addRole();
                     break;
                 case 'Delete':
-                    deleteDepartment();
+                    deleteRole();
                     break;
                 case 'View all':
-                    viewDepartments();
+                    viewRoles();
                     break;
                 default:
                     init();
@@ -522,7 +522,104 @@ function roles() {
        });
 }
 
-/** TO DO:
- *
- * Roles: add, view, delete
- */
+// add a new role
+async function addRole() {
+    const departmentTools = new Department();
+    const rawList = await departmentTools.allDepartments();
+    
+    // build menu list of items
+    let departmentList = [];
+
+    rawList.forEach(department => departmentList.push(department.name));
+       
+    // add exit option
+    departmentList.push('Exit');
+
+    inquirer
+    .prompt([
+        {
+            name: 'title',
+            type: 'input',
+            message: 'New department title: '
+        },
+        {
+            name: 'salary',
+            type: 'input',
+            message: 'Salary: '
+        },
+        {
+            name: 'department',
+            type: 'list',
+            message: 'Which department is this role in?',
+            choices: departmentList
+        }
+    ])
+    .then(async (role) => {
+        if (role.name === 'Exit') {
+            roles();
+        }
+        else {
+            // get department ID
+            let departmentId = await departmentTools.getIdByName(role.department);
+
+            // create role
+            let roleTools = new Role();
+            await roleTools.createNew(role.title, role.salary, departmentId);
+
+            console.log('\n********* Added role!\n');
+            roles();
+        }
+    });
+}
+
+// delete a role 
+async function deleteRole() {
+    const roleTools = new Role();
+    const rawList = await roleTools.getAllRoles();
+
+    // build menu list of items
+    let roleList = [];
+
+    rawList.forEach(role => roleList.push(role.title));
+       
+    // add exit option
+    roleList.push('Exit');
+
+    inquirer
+    .prompt([
+        {
+            name: 'name',
+            type: 'list',
+            message: 'Which role do you want to delete?',
+            choices: roleList
+        }
+    ])
+    .then(async (role) => {
+        if (role.name === 'Exit') {
+            roles();
+        }
+        else {
+            let roleId = await roleTools.getRoleByName(role.name);
+            await roleTools.deleteRole(roleId);
+
+            console.log('\n********* Deleted role!\n');
+
+            roles();
+        }
+    });
+}
+
+// view all roles 
+async function viewRoles() {
+    const getRoles = new Role();
+    const roleTable = await getRoles.getAllRoles();
+
+    let table = new Object();
+    roleTable.forEach(role => {
+        table[role.id] = {Name: role.title, Salary: role.salary};
+    })
+
+    console.table(table);
+
+    roles();
+}
