@@ -493,7 +493,7 @@ async function viewPayroll() {
                         }
                     }
                 }
-                console.log('\nTotal budget: ' + budget);
+                console.log('\nTotal budget: ' + formatPrice(budget));
             }
             else {
                 console.log('\nNo employees! Saving that money.');
@@ -638,4 +638,11 @@ async function viewRoles() {
     // display table, return to menu
     console.table(table);
     roles();
+}
+
+// formats number into price
+function formatPrice(number) {
+    number = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 2}).format(number);
+
+    return number;
 }
