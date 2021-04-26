@@ -32,6 +32,7 @@ function init() {
                     roles();
                     break;
                 default:
+                    process.exit();
                     break;
             }
  
@@ -118,8 +119,8 @@ async function addEmployee() {
         // display success message
         
         console.log('\n********* Added employee!\n');
+
         // take user back to employee menu
-        
         employees();
     });
 }
@@ -262,7 +263,7 @@ async function modifyManager() {
     let employeeList = [];
 
     rawList.forEach(employee => employeeList.push(employee.first_name + ' ' + employee.last_name));
-       
+
     // add exit option
     employeeList.push('Exit');
 
@@ -375,7 +376,6 @@ function addDepartment() {
 
         console.log('\n********* Added department!\n');
         // take user back to employee menu
-        
         departments();
     });
 }
