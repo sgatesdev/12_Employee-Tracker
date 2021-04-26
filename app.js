@@ -4,6 +4,7 @@ const inquirer = require('inquirer');
 const Employee = require('./lib/Employee');
 const Manager = require('./lib/Manager');
 const Role = require('./lib/Role');
+const Department = require('./lib/Department');
 
 init();
 
@@ -70,6 +71,7 @@ function employees() {
                     viewEmployeesMgr();
                     break;
                 default:
+                    init();
                     break;
             }
        });
@@ -77,49 +79,49 @@ function employees() {
 
 // add an employee
 async function addEmployee() {
-        // use role methods to get all roles
-        let roleTools = new Role();
-        let roles = await roleTools.getAllRoles();
+    // use role methods to get all roles
+    let roleTools = new Role();
+    let roles = await roleTools.getAllRoles();
+    
+    // build list for inquirer
+    let roleList = [];
+    roles.forEach(role => roleList.push(role.title));
+
+    inquirer
+    .prompt([
+        {
+            name: 'first_name',
+            type: 'input',
+            message: 'First name: ',
+            default: 'John'
+        },
+        {
+            name: 'last_name',
+            type: 'input',
+            message: 'Last name: ',
+            default: 'Smith'
+        },
+        {
+            name: 'Role',
+            type: 'list',
+            choices: roleList
+        }
+    ])
+    .then(async (employee) => {
+        // convert role choice into DB id for that role
+        let roleId = await roleTools.getRoleByName(employee.Role);
+        let employeeTools = new Employee();
+
+        // add employee to database
+        await employeeTools.createNew(employee.first_name, employee.last_name, roleId);
+
+        // display success message
         
-        // build list for inquirer
-        let roleList = [];
-        roles.forEach(role => roleList.push(role.title));
-
-        inquirer
-        .prompt([
-            {
-                name: 'first_name',
-                type: 'input',
-                message: 'First name: ',
-                default: 'John'
-            },
-            {
-                name: 'last_name',
-                type: 'input',
-                message: 'Last name: ',
-                default: 'Smith'
-            },
-            {
-                name: 'Role',
-                type: 'list',
-                choices: roleList
-            }
-        ])
-        .then(async (employee) => {
-            // convert role choice into DB id for that role
-            let roleId = await roleTools.getRoleByName(employee.Role);
-            let employeeTools = new Employee();
-
-            // add employee to database
-            await employeeTools.createNew(employee.first_name, employee.last_name, roleId);
-
-            // display success message
-            
-            console.log('\n********* Added employee!\n');
-            // take user back to employee menu
-            
-            employees();
-        });
+        console.log('\n********* Added employee!\n');
+        // take user back to employee menu
+        
+        employees();
+    });
 }
 
 async function deleteEmployee() {
@@ -310,14 +312,9 @@ async function modifyManager() {
                     // get manager ID and then use switchManager to switch
                     let managerId = await managerTools.getManagerByName(manager.name);
 
-                    try {
-                        await thisEmployee.switchManager(managerId);
-                        console.log('\n********* Updated manager!\n');
+                    await thisEmployee.switchManager(managerId);
+                    console.log('\n********* Updated manager!\n');
 
-                    }
-                    catch(error) {
-                        console.log(error);
-                    }
                     modifyManager();
                 }
             });
@@ -325,36 +322,207 @@ async function modifyManager() {
     }
     });
 }
+
 // create, view, delete departments, view combined salaries in dept
 function departments() {
+    console.log('\n********* Departments');
 
+    inquirer
+    .prompt({
+        name: 'option',
+        type: 'list',
+        message: 'What would you like to do?',
+        choices: ['Add','Delete','View all','Payroll','Exit'],
+        })
+        .then((answer) => {
+            // send the user where they want to go
+            switch(answer.option) {
+                case 'Add':
+                    addDepartment();
+                    break;
+                case 'Delete':
+                    deleteDepartment();
+                    break;
+                case 'View all':
+                    viewDepartments();
+                    break;
+                case 'Payroll':
+                    viewPayroll();
+                    break;
+                default:
+                    init();
+                    break;
+            }
+       });
+}
+
+// add department
+function addDepartment() {
+    // gather user input
+    inquirer
+    .prompt([
+        {
+            name: 'name',
+            type: 'input',
+            message: 'Department name: ',
+            default: 'Accounting'
+        }
+    ])
+    .then(async (department) => {
+        // add department to database
+        let departmentTools = new Department();
+        await departmentTools.createNew(department.name);
+
+        console.log('\n********* Added department!\n');
+        // take user back to employee menu
+        
+        departments();
+    });
+}
+
+// delete department
+async function deleteDepartment() {
+    const departmentTools = new Department();
+    const rawList = await departmentTools.allDepartments();
+
+    // build menu list of items
+    let departmentList = [];
+
+    rawList.forEach(department => departmentList.push(department.name));
+       
+    // add exit option
+    departmentList.push('Exit');
+
+    inquirer
+    .prompt([
+        {
+            name: 'name',
+            type: 'list',
+            message: 'Which department do you want to delete?',
+            choices: departmentList
+        }
+    ])
+    .then(async (dept) => {
+        if (dept.name === 'Exit') {
+            departments();
+        }
+        else {
+            // use the magic of classes to clean this up!
+            await departmentTools.deleteDepartment(dept.name);
+
+            console.log('\n********* Deleted department!\n');
+
+            departments();
+        }
+    });
+}
+
+// view departments
+async function viewDepartments() {
+    const getDepartments = new Department();
+    const departmentTable= await getDepartments.allDepartments();
+    let table = new Object();
+    departmentTable.forEach(dept => {
+        table[dept.id] = dept.name;
+    })
+
+    console.table(table);
+
+    departments();
+}
+
+// view payroll
+async function viewPayroll() {
+    // find which roles use this deparment
+    // then add up how many people are in those roles
+    // combine salaries, produce total number
+    const departmentTools = new Department();
+    const rawList = await departmentTools.allDepartments();
+
+    // build menu list of items
+    let departmentList = [];
+
+    rawList.forEach(department => departmentList.push(department.name));
+       
+    // add exit option
+    departmentList.push('Exit');
+
+    inquirer
+    .prompt([
+        {
+            name: 'name',
+            type: 'list',
+            message: 'Which department do you want to view payroll for?',
+            choices: departmentList
+        }
+    ])
+    .then(async (dept) => {
+        if (dept.name === 'Exit') {
+            departments();
+        }
+        else {
+            // convert name to database ID
+            let departmentId = await departmentTools.getIdByName(dept.name);
+            
+            // get roles that use that ID
+            let roleTools = new Role();
+            let roles = await roleTools.getRolesByDept(departmentId);
+
+            let employeeTools = new Employee();
+            let employeeList = await employeeTools.allEmployees();
+            let budget = 0;
+            
+            if(roles.length > 0) {
+                for(let i = 0; i < roles.length; i++) {
+                    let salary = roles[i].salary;
+                    for(let n = 0; n < employeeList.length; n++) {
+                        if (employeeList[n].role_id === roles[i].id) {
+                            budget += salary;
+                        }
+                    }
+                }
+                console.log('\nTotal budget: ' + budget);
+            }
+            else {
+                console.log('\nNo employees! Saving that money.');
+            }
+
+            departments();
+        }
+    });
 }
 
 // create, view, delete roles
 function roles() {
+    console.log('\n********* Departments');
 
+    inquirer
+    .prompt({
+        name: 'option',
+        type: 'list',
+        message: 'What would you like to do?',
+        choices: ['Add','Delete','View all','Exit'],
+        })
+        .then((answer) => {
+            // send the user where they want to go
+            switch(answer.option) {
+                case 'Add':
+                    addRole();
+                    break;
+                case 'Delete':
+                    deleteDepartment();
+                    break;
+                case 'View all':
+                    viewDepartments();
+                    break;
+                default:
+                    init();
+                    break;
+            }
+       });
 }
 
-async function getRole(employee) {
-    // node native promisify
-    const query = util.promisify(connection.query).bind(connection);
-
-    try {
-        const result = await query('SELECT * FROM employee WHERE ?', 
-        {
-            id: employee,
-        });
-        //console.log(result);
-
-        const result2 = await query('SELECT * FROM employee WHERE ?', 
-        {
-            id: 5,
-        });
-
-        console.log(result);
-        console.log(result2);
-    }   
-    catch (error) {
-        console.log(error);
-    }
-}
+/** TO DO:
+ *
+ * Roles: add, view, delete
+ */
