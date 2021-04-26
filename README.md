@@ -12,6 +12,7 @@ This Node app allows users to manage a database of employees, managers, roles, a
 - [Usage](#usage)
 - [Contribute](#contribute)
 - [Test](#test)
+- [Video](#video)
 - [License](#license)
 - [Questions](#questions)
 
@@ -34,6 +35,10 @@ Email me with questions or comments. Any improvements are welcome!
 ## Test
 
 Install the app, run the seed.sql script, and try it out! Make sure to have Node dependencies installed, as defined in the package.json file.
+
+## Video
+
+Please view a demonstration video [here](https://drive.google.com/file/d/1BB4kB-Clz8lQozW1mNumM0GpZOw5ujhc/view).
 
 ## License
 
