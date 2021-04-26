@@ -4,7 +4,7 @@
 
 ## Description
 
-This Node app allows users to manage a database of employees, managers, roles, and departments. This is a command line application that utilizes Inquirer. Features include adding, viewing, and deleting key data. Additional features include the ability to view the total payroll of a department, view employees by manager, or view employees by role, and more!
+This Node app allows users to manage a database of employees, managers, roles, and departments. This is a command line application that utilizes Inquirer. Features include adding, viewing, and deleting key data. Additional features include the ability to view the total payroll of a department, view employees by manager, or view employees by role.
 
 ## Table of Contents
 
