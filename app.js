@@ -1,11 +1,14 @@
+// use inquirer to get input/navigate app
 const inquirer = require('inquirer');
 
-// import modules for working with different employees
+// import modules for working with different employees/database
+// all database functions are in the modules below
 const Employee = require('./lib/Employee');
 const Manager = require('./lib/Manager');
 const Role = require('./lib/Role');
 const Department = require('./lib/Department');
 
+// start app
 init();
 
 // beginning
@@ -111,6 +114,8 @@ async function addEmployee() {
     .then(async (employee) => {
         // convert role choice into DB id for that role
         let roleId = await roleTools.getRoleByName(employee.Role);
+
+        // use employee methods 
         let employeeTools = new Employee();
 
         // add employee to database
@@ -126,10 +131,11 @@ async function addEmployee() {
 }
 
 async function deleteEmployee() {
+    // use Employee methods to work with data, get all employees
     const employeeTools = new Employee();
     const rawList = await employeeTools.allEmployees();
     
-    // build menu list of items
+    // build menu list of items for inquirer
     let employeeList = [];
 
     rawList.forEach(employee => employeeList.push(employee.first_name + ' ' + employee.last_name));
@@ -151,7 +157,7 @@ async function deleteEmployee() {
             employees();
         }
         else {
-            // use the magic of classes to clean this up!
+            // create new Employee object, then use methods to delete from DB
             let thisEmployee = new Employee(employee.name);
             await thisEmployee.popInfoByName();
             await thisEmployee.deleteEmployee();
@@ -165,17 +171,25 @@ async function deleteEmployee() {
 
 // view employees
 async function viewEmployees() {
+    // use Employee object to access tools/work with DB
     const getEmployees = new Employee();
+    // get employees by role from DB
     const employeeTable = await getEmployees.employeesByRole();
+    // print to table
     console.table(employeeTable);
+    // return to menu
     employees();
 }
 
 // view employees by manager
 async function viewEmployeesMgr() {
+    // use Employee object to access tools/work with DB
     const getEmployees = new Employee();
+    // get employees by manager from DB
     const employeeTable = await getEmployees.employeesByManager();
+    // print to table
     console.table(employeeTable);
+    // return to menu
     employees();
 }
 
@@ -238,16 +252,11 @@ async function modifyRole() {
                 else {
                     // get manager ID and then use switchManager to switch
                     let roleId = await roleTools.getRoleByName(role.name);
-
-                    try {
-                        await thisEmployee.switchRole(roleId);
-                        console.log('\n********* Updated role!\n');
-
-                    }
-                    catch(error) {
-                        console.log(error);
-                    }
-                    modifyRole();
+                    // use Employee method to change role assignment
+                    await thisEmployee.switchRole(roleId);
+                    // return to menu
+                    console.log('\n********* Updated role!\n');
+                    employees();
                 }
             });
         }
@@ -256,6 +265,7 @@ async function modifyRole() {
 
 //change employee manager
 async function modifyManager() {
+    // use Employee object to access tools/work with DB
     const employeeTools = new Employee();
     const rawList = await employeeTools.allEmployees();
     
@@ -281,7 +291,7 @@ async function modifyManager() {
             employees();
         }
         else {
-            // use the magic of classes to clean this up!
+            // create new Employee object, use methods to work with data from DB
             let thisEmployee = new Employee(employee.name);
             await thisEmployee.popInfoByName();
 
@@ -310,13 +320,13 @@ async function modifyManager() {
                     employees();
                 }
                 else {
-                    // get manager ID and then use switchManager to switch
+                    // get manager ID 
                     let managerId = await managerTools.getManagerByName(manager.name);
-
+                    // use Employee method switchManager to change manager assignment
                     await thisEmployee.switchManager(managerId);
                     console.log('\n********* Updated manager!\n');
-
-                    modifyManager();
+                    // return to menu
+                    employees();
                 }
             });
         
@@ -382,6 +392,7 @@ function addDepartment() {
 
 // delete department
 async function deleteDepartment() {
+    // use Department object to work with DB/data
     const departmentTools = new Department();
     const rawList = await departmentTools.allDepartments();
 
@@ -407,7 +418,7 @@ async function deleteDepartment() {
             departments();
         }
         else {
-            // use the magic of classes to clean this up!
+            // use Department method deleteDepartment to remove from DB
             await departmentTools.deleteDepartment(dept.name);
 
             console.log('\n********* Deleted department!\n');
@@ -419,23 +430,22 @@ async function deleteDepartment() {
 
 // view departments
 async function viewDepartments() {
+    // use Department object to work with DB
     const getDepartments = new Department();
     const departmentTable= await getDepartments.allDepartments();
-    let table = new Object();
+    // create table object to build "nice" way to display data
+    let table = new Object(); 
     departmentTable.forEach(dept => {
         table[dept.id] = dept.name;
     })
-
+    // display data, return to menu
     console.table(table);
-
     departments();
 }
 
-// view payroll
+// find which roles use this deparment, then add up how many people are in those roles,combine salaries, produce total number
 async function viewPayroll() {
-    // find which roles use this deparment
-    // then add up how many people are in those roles
-    // combine salaries, produce total number
+    // use Department object to access DB/data
     const departmentTools = new Department();
     const rawList = await departmentTools.allDepartments();
 
@@ -464,14 +474,16 @@ async function viewPayroll() {
             // convert name to database ID
             let departmentId = await departmentTools.getIdByName(dept.name);
             
-            // get roles that use that ID
+            // get roles that are in that department
             let roleTools = new Role();
             let roles = await roleTools.getRolesByDept(departmentId);
 
+            // get Employee data...
             let employeeTools = new Employee();
             let employeeList = await employeeTools.allEmployees();
             let budget = 0;
             
+            // process all data, looping through roles. for each role, look for how many employees have that role, then add up all of the salaries
             if(roles.length > 0) {
                 for(let i = 0; i < roles.length; i++) {
                     let salary = roles[i].salary;
@@ -486,7 +498,7 @@ async function viewPayroll() {
             else {
                 console.log('\nNo employees! Saving that money.');
             }
-
+            //return to menu
             departments();
         }
     });
@@ -524,6 +536,7 @@ function roles() {
 
 // add a new role
 async function addRole() {
+    // use Department object to access data/DB
     const departmentTools = new Department();
     const rawList = await departmentTools.allDepartments();
     
@@ -565,8 +578,9 @@ async function addRole() {
             // create role
             let roleTools = new Role();
             await roleTools.createNew(role.title, role.salary, departmentId);
-
             console.log('\n********* Added role!\n');
+
+            // Back to menu
             roles();
         }
     });
@@ -574,6 +588,7 @@ async function addRole() {
 
 // delete a role 
 async function deleteRole() {
+    // use Role object to work with DB/data
     const roleTools = new Role();
     const rawList = await roleTools.getAllRoles();
 
@@ -599,11 +614,11 @@ async function deleteRole() {
             roles();
         }
         else {
+            // delete role
             let roleId = await roleTools.getRoleByName(role.name);
             await roleTools.deleteRole(roleId);
-
             console.log('\n********* Deleted role!\n');
-
+            // return to menu
             roles();
         }
     });
@@ -611,15 +626,16 @@ async function deleteRole() {
 
 // view all roles 
 async function viewRoles() {
+    // use Role object to work with DB/data
     const getRoles = new Role();
     const roleTable = await getRoles.getAllRoles();
 
+    // build table of rows, using object to assign column names
     let table = new Object();
     roleTable.forEach(role => {
         table[role.id] = {Name: role.title, Salary: role.salary};
     })
-
+    // display table, return to menu
     console.table(table);
-
     roles();
 }
