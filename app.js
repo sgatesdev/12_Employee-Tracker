@@ -1,20 +1,9 @@
-const mysql = require('mysql');
 const inquirer = require('inquirer');
 
-// connect to database
-const connection = mysql.createConnection({
-    host: 'localhost',
-  
-    // Your port; if not 3306
-    port: 3306,
-  
-    // Your username
-    user: 'root',
-  
-    // Your password
-    password: 'rXwAP9eJ',
-    database: 'employee_tracker',
-  });
+// import modules for working with different employees
+const Employee = require('./lib/Employee');
+const Manager = require('./lib/Manager');
+const Role = require('./lib/Role');
 
 init();
 
@@ -42,7 +31,6 @@ function init() {
                     roles();
                     break;
                 default:
-                    connection.end();
                     break;
             }
  
@@ -58,7 +46,7 @@ function employees() {
         name: 'option',
         type: 'list',
         message: 'What would you like to do?',
-        choices: ['Add','Update manager','Update role','Delete ','View all employees','View by manager','Exit'],
+        choices: ['Add','Update manager','Update role','Delete','View all employees','View by manager','Exit'],
         })
         .then((answer) => {
             // send the user where they want to go
@@ -79,24 +67,23 @@ function employees() {
                     viewEmployees();
                     break;
                 case 'View by manager':
-                    viewEmployees();
+                    viewEmployeesMgr();
                     break;
                 default:
-                    init();
                     break;
             }
        });
 }
 
 // add an employee
-function addEmployee() {
-    connection.query('SELECT * FROM role', (err, roles) => {
-        // error handling
-        if (err) throw err;
-        // if no error, dump roles into array for menu 
+async function addEmployee() {
+        // use role methods to get all roles
+        let roleTools = new Role();
+        let roles = await roleTools.getAllRoles();
+        
+        // build list for inquirer
         let roleList = [];
-        roles.forEach(role => roleList.push(role.id + '. ' + role.title));
-        //console.log(roleList);
+        roles.forEach(role => roleList.push(role.title));
 
         inquirer
         .prompt([
@@ -104,7 +91,7 @@ function addEmployee() {
                 name: 'first_name',
                 type: 'input',
                 message: 'First name: ',
-                default: 'Sam'
+                default: 'John'
             },
             {
                 name: 'last_name',
@@ -118,218 +105,226 @@ function addEmployee() {
                 choices: roleList
             }
         ])
-        .then((employee) => {
-                // convert role choice into DB id for that role
-                let roleId = employee.Role.substr(0,1);
+        .then(async (employee) => {
+            // convert role choice into DB id for that role
+            let roleId = await roleTools.getRoleByName(employee.Role);
+            let employeeTools = new Employee();
 
-                // insert employee into DB
-                connection.query(
-                    'INSERT INTO employee SET ?',
-                    // QUESTION: What does the || 0 do?
-                    {
-                      first_name: employee.first_name,
-                      last_name: employee.last_name,
-                      role_id: `${roleId}`,
-                    },
-                    (err) => {
-                      if (err) throw err;
-                      console.log('Employee added!');
-                      
-                      // redirect user back to employee start
-                      employees();
-                    }
-                );
+            // add employee to database
+            await employeeTools.createNew(employee.first_name, employee.last_name, roleId);
+
+            // display success message
+            
+            console.log('\n********* Added employee!\n');
+            // take user back to employee menu
+            
+            employees();
         });
+}
+
+async function deleteEmployee() {
+    const employeeTools = new Employee();
+    const rawList = await employeeTools.allEmployees();
+    
+    // build menu list of items
+    let employeeList = [];
+
+    rawList.forEach(employee => employeeList.push(employee.first_name + ' ' + employee.last_name));
+       
+    // add exit option
+    employeeList.push('Exit');
+
+    inquirer
+    .prompt([
+        {
+            name: 'name',
+            type: 'list',
+            message: 'Which employee do you want to delete?',
+            choices: employeeList
+        }
+    ])
+    .then(async (employee) => {
+        if (employee.name === 'Exit') {
+            employees();
+        }
+        else {
+            // use the magic of classes to clean this up!
+            let thisEmployee = new Employee(employee.name);
+            await thisEmployee.popInfoByName();
+            await thisEmployee.deleteEmployee();
+
+            console.log('\n********* Deleted employee!\n');
+
+            employees();
+        }
     });
 }
 
 // view employees
-function viewEmployees() {
-    connection.query('SELECT * FROM employee', (err, results) => {
-        // if there's an error
-        if (err) throw err;
-    
-        // dump results into object
-        var employeeList = {};
-        results.forEach(employee => {
-            employeeList[employee.id] = employee.first_name + ' ' + employee.last_name; 
-        });
+async function viewEmployees() {
+    const getEmployees = new Employee();
+    const employeeTable = await getEmployees.employeesByRole();
+    console.table(employeeTable);
+    employees();
+}
 
-        // display to table
-        console.table(employeeList);
-
-        // go back to employee menu
-        employees();
-    });
+// view employees by manager
+async function viewEmployeesMgr() {
+    const getEmployees = new Employee();
+    const employeeTable = await getEmployees.employeesByManager();
+    console.table(employeeTable);
+    employees();
 }
 
 //change employee role
-function modifyRole() {
-    var employeeId = -1;
+async function modifyRole() {
+    const employeeTools = new Employee();
+    const rawList = await employeeTools.allEmployees();
+    
+    // build menu list of items
+    let employeeList = [];
 
-    connection.query('SELECT * FROM employee', (err, employees) => {
-        // error handling
-        if (err) throw err;
-        // if no error, dump roles into array for menu 
-        let employeeList = [];
-        employees.forEach(employee => employeeList.push(employee.id + '. ' + employee.first_name + ' ' + employee.last_name));
-        // add exit option
-        employeeList.push('Exit');
+    rawList.forEach(employee => employeeList.push(employee.first_name + ' ' + employee.last_name));
+       
+    // add exit option
+    employeeList.push('Exit');
 
-        inquirer
-        .prompt([
-            {
-                name: 'name',
-                type: 'list',
-                message: 'Which employee do you want to change the role for?',
-                choices: employeeList
-            }
-        ])
-        .then((employee) => {
-            if (employee.name === 'Exit') {
-                connection.end();
-            }
-            else {
-                employeeId = employee.name.substr(0,employee.name.indexOf('.'));
+    inquirer
+    .prompt([
+        {
+            name: 'name',
+            type: 'list',
+            message: 'Which employee do you want to change the role for?',
+            choices: employeeList
+        }
+    ])
+    .then(async (employee) => {
+        if (employee.name === 'Exit') {
+            init();
+        }
+        else {
+            // use the magic of classes to clean this up!
+            let thisEmployee = new Employee(employee.name);
+            await thisEmployee.popInfoByName();
 
-                connection.query('SELECT * FROM role', (err, roles) => {
-                    // error handling
-                    if (err) throw err;
+            // get list of all roles
+            const roleTools = new Role();
+            const roles = await roleTools.getAllRoles();
 
-                    // else build menu of roles
-                    let roleList = [];
-                    roles.forEach(role => roleList.push(role.id + '. ' + role.title + ' $' + role.salary));
+            // build menu list
+            let roleList = [];
+            roles.forEach(role => roleList.push(role.title));
 
-                    // add exit option
-                    roleList.push('Exit');
+            // add exit option
+            roleList.push('Exit');
 
-                    inquirer
-                    .prompt([
-                        {
-                            name: 'name',
-                            type: 'list',
-                            message: 'Which role do you want to use?',
-                            choices: roleList
-                        }
-                    ])
-                    .then((role) => {
-                        if (employee.name === 'Exit') {
-                            connection.end();
-                        }
-                        else {
-                            // get role ID
-                            let roleId = role.name.substr(0,role.name.indexOf('.'));
-                            console.log(employeeId);
-                            
-                            connection.query(
-                                'UPDATE employee SET ? WHERE ?',
-                                [
-                                  {
-                                    role_id: roleId,
-                                  },
-                                  {
-                                    id: employeeId,
-                                  },
-                                ],
-                                (error) => {
-                                  if (error) throw err;
-                                  
-                                  console.log('\n********* Updated employee role!');
+            // ask which role to switch employee
+            inquirer
+            .prompt([
+                {
+                    name: 'name',
+                    type: 'list',
+                    message: 'Which role do you want to use?',
+                    choices: roleList
+                }
+            ])
+            .then(async (role) => {
+                if (employee.name === 'Exit') {
+                    connection.end();
+                }
+                else {
+                    // get manager ID and then use switchManager to switch
+                    let roleId = await roleTools.getRoleByName(role.name);
 
-                                  modifyRole();
-                                }
-                              );
-                        }
-                    });
-                });
-            }
-        });
+                    try {
+                        await thisEmployee.switchRole(roleId);
+                        console.log('\n********* Updated role!\n');
+
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                    modifyRole();
+                }
+            });
+        }
     });
 }
 
 //change employee manager
-function modifyManager() {
-    var employeeID = -1;
+async function modifyManager() {
+    const employeeTools = new Employee();
+    const rawList = await employeeTools.allEmployees();
+    
+    // build menu list of items
+    let employeeList = [];
 
-    connection.query('SELECT * FROM employee', (err, roles) => {
-        // error handling
-        if (err) throw err;
-        // if no error, dump roles into array for menu 
-        let employeeList = [];
-        roles.forEach(employee => employeeList.push(employee.id + '. ' + employee.first_name + ' ' + employee.last_name));
-        // add exit option
-        employeeList.push('Exit');
+    rawList.forEach(employee => employeeList.push(employee.first_name + ' ' + employee.last_name));
+       
+    // add exit option
+    employeeList.push('Exit');
 
-        inquirer
-        .prompt([
-            {
-                name: 'name',
-                type: 'list',
-                message: 'Which employee do you want to change the manager for?',
-                choices: employeeList
-            }
-        ])
-        .then((employee) => {
-            if (employee.name === 'Exit') {
-                connection.end();
-            }
-            else {
-                employeeID = employee.name.substr(0,employee.name.indexOf('.'));
+    inquirer
+    .prompt([
+        {
+            name: 'name',
+            type: 'list',
+            message: 'Which employee do you want to change the manager for?',
+            choices: employeeList
+        }
+    ])
+    .then(async (employee) => {
+        if (employee.name === 'Exit') {
+            employees();
+        }
+        else {
+            // use the magic of classes to clean this up!
+            let thisEmployee = new Employee(employee.name);
+            await thisEmployee.popInfoByName();
 
-                connection.query('SELECT employee.id, employee.first_name, employee.last_name FROM role LEFT JOIN employee ON employee.role_id=role.id WHERE role.title="Manager" ORDER BY employee.id', (err, managers) => {
-                    // error handling
-                    if (err) throw err;
-                    //console.log(managers);
+            // get list of all managers
+            const managerTools = new Manager();
+            const managers = await managerTools.getAllManagers();
 
-                    // else build menu of managers
-                    let managerList = [];
-                    managers.forEach(manager => managerList.push(manager.id + '. ' + manager.first_name + ' ' + manager.last_name));
+            // build menu list
+            let managerList = [];
+            managers.forEach(manager => managerList.push(manager.first_name + ' ' + manager.last_name));
 
-                    // add exit option
-                    managerList.push('Exit');
+            // add exit option
+            managerList.push('Exit');
 
-                    inquirer
-                    .prompt([
-                        {
-                            name: 'name',
-                            type: 'list',
-                            message: 'Which manager do you want to use?',
-                            choices: managerList
-                        }
-                    ])
-                    .then((manager) => {
-                        if (employee.name === 'Exit') {
-                            connection.end();
-                        }
-                        else {
-                            // get manager ID from name
-                            let managerId = manager.name.substr(0,manager.name.indexOf('.'));
+            inquirer
+            .prompt([
+                {
+                    name: 'name',
+                    type: 'list',
+                    message: 'Which manager do you want to use?',
+                    choices: managerList
+                }
+            ])
+            .then(async (manager) => {
+                if (manager.name === 'Exit') {
+                    employees();
+                }
+                else {
+                    // get manager ID and then use switchManager to switch
+                    let managerId = await managerTools.getManagerByName(manager.name);
 
-                            connection.query(
-                                'UPDATE employee SET ? WHERE ?',
-                                [
-                                  {
-                                    manager_id: managerId,
-                                  },
-                                  {
-                                    id: employeeID,
-                                  },
-                                ],
-                                (error) => {
-                                  if (error) throw err;
-                                  console.log('\n********* Updated manager!\n');
+                    try {
+                        await thisEmployee.switchManager(managerId);
+                        console.log('\n********* Updated manager!\n');
 
-                                  modifyManager();
-                                }
-                              );
-                        }
-                    });
-                });
-            }
-        });
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                    modifyManager();
+                }
+            });
+        
+    }
     });
 }
-
 // create, view, delete departments, view combined salaries in dept
 function departments() {
 
@@ -338,4 +333,28 @@ function departments() {
 // create, view, delete roles
 function roles() {
 
+}
+
+async function getRole(employee) {
+    // node native promisify
+    const query = util.promisify(connection.query).bind(connection);
+
+    try {
+        const result = await query('SELECT * FROM employee WHERE ?', 
+        {
+            id: employee,
+        });
+        //console.log(result);
+
+        const result2 = await query('SELECT * FROM employee WHERE ?', 
+        {
+            id: 5,
+        });
+
+        console.log(result);
+        console.log(result2);
+    }   
+    catch (error) {
+        console.log(error);
+    }
 }
