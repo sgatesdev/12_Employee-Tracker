@@ -4,18 +4,13 @@
 // require mysql module
 const mysql = require('mysql');
 
-// connect to database
+// connect to database - configure to your local settings
+// sql will seed into database employee_tracker
 const connection = mysql.createConnection({
     host: 'localhost',
-
-    // Your port; if not 3306
     port: 3306,
-
-    // Your username
     user: 'root',
-
-    // Your password
-    password: 'rXwAP9eJ',
+    password: '',
     database: 'employee_tracker',
 });
 
