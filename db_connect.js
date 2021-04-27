@@ -1,4 +1,7 @@
-// include mysql 
+// db_connect.js
+// This file sets up the mysql connection for all modules, exports that connection
+
+// require mysql module
 const mysql = require('mysql');
 
 // connect to database
